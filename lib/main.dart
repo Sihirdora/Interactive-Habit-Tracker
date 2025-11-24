@@ -3,7 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'screens/home_screen.dart';
+import 'screens/main_wrapper.dart';
+import 'screens/welcome_screen.dart';
 
 // Variabel menggunakan lowerCamelCase
 const supabaseUrl = 'https://jchatgthjwemgapwqygu.supabase.co'; 
@@ -31,7 +32,7 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.teal,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: const HomeScreen(), 
+      home: const WelcomeScreen(), 
     );
   }
 }

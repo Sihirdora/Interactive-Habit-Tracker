@@ -24,7 +24,6 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
   double _targetValue = 1.0;
   String? _unit;
   
-  // FIX: _selectedDays dijadikan 'final'
   final Set<int> _selectedDays = {1, 2, 3, 4, 5}; 
   Color _selectedColor = Colors.blue;
   bool _isLoading = false;
@@ -159,10 +158,12 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
               Text('Target Configuration', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
 
+              // --- FIX 1: Menggunakan Flex untuk Target Configuration (Anti-Overflow) ---
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
+                  Expanded( 
+                    flex: 3, 
                     child: DropdownButtonFormField<String>(
                       decoration: const InputDecoration(border: OutlineInputBorder()),
                       value: _targetType,
@@ -181,11 +182,11 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
                           .map<DropdownMenuItem<String>>((String value) => DropdownMenuItem<String>(value: value, child: Text(value))).toList(),
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 8),
                   
                   if (_targetType != 'BOOLEAN')
                     Expanded(
-                      flex: 1,
+                      flex: 3, 
                       child: TextFormField(
                         controller: _targetController,
                         keyboardType: TextInputType.number,
@@ -193,11 +194,11 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
                         validator: (value) => (_targetType != 'BOOLEAN' && (value == null || double.tryParse(value) == null || double.parse(value) <= 0)) ? 'Required' : null,
                       ),
                     ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 8),
 
                   if (_targetType != 'BOOLEAN')
                     Expanded(
-                      flex: 1,
+                      flex: 2, 
                       child: TextFormField(
                         controller: _unitController,
                         decoration: const InputDecoration(labelText: 'Unit (e.g., min)', border: OutlineInputBorder()),
@@ -207,25 +208,27 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
                 ],
               ),
               const SizedBox(height: 20),
+              
               Text('Frequency (Days of the Week)', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              
+              // --- FIX 2: Menggunakan Wrap untuk Frequency (Anti-Overflow) ---
+              Wrap( 
+                spacing: 6.0, 
+                runSpacing: 4.0, 
                 children: List.generate(7, (index) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 2.0),
-                    child: ChoiceChip(
-                      label: Text(weekdays[index]),
-                      selected: _selectedDays.contains(index),
-                      onSelected: (_) => _toggleDay(index),
-                      // FIX: Menggunakan withAlpha untuk mengatasi warning withOpacity
-                      selectedColor: _selectedColor.withAlpha((255 * 0.7).round()),
-                      backgroundColor: Colors.grey.shade200,
-                    ),
+                  return ChoiceChip(
+                    label: Text(weekdays[index]),
+                    selected: _selectedDays.contains(index),
+                    onSelected: (_) => _toggleDay(index),
+                    selectedColor: _selectedColor.withAlpha((255 * 0.7).round()),
+                    backgroundColor: Colors.grey.shade200,
                   );
                 }),
               ),
+              
               const SizedBox(height: 20),
+              
               Text('Habit Color', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               Wrap(
@@ -238,7 +241,6 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
                       child: CircleAvatar(
                         radius: 18,
                         backgroundColor: color,
-                        // FIX: Mengganti perbandingan .value dengan perbandingan objek Color
                         child: _selectedColor == color
                             ? const Icon(Icons.check, color: Colors.white, size: 18)
                             : null,
