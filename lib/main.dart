@@ -7,8 +7,8 @@ import 'screens/main_wrapper.dart';
 import 'screens/welcome_screen.dart';
 
 // Variabel menggunakan lowerCamelCase
-const supabaseUrl = 'https://jchatgthjwemgapwqygu.supabase.co'; 
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpjaGF0Z3RoandlbWdhcHdxeWd1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM2MjYwODksImV4cCI6MjA3OTIwMjA4OX0.G039DkyDEVr45arIVu3jdeUkC7NBnIxiTmlAIGNNOz0'; 
+const supabaseUrl = 'https://krelridtfqpyspmdhzoj.supabase.co'; 
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtyZWxyaWR0ZnFweXNwbWRoem9qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQxMTY2NTcsImV4cCI6MjA3OTY5MjY1N30.hlJIibZfYIS3xVa4GqIs7DB1FoHdaHS2JI2b01cjfDc'; 
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
