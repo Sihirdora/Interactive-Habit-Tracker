@@ -26,11 +26,6 @@ class SupabaseService {
     return Habit.fromJson(response);
   }
 
-  // DELETE: Menghapus kebiasaan
-  Future<void> deleteHabit(int id) async {
-    await _client.from('habits').delete().eq('id', id);
-  }
-
   // UPDATE PROGRESS HARIAN (JSONB)
   Future<void> updateHabitProgress(int habitId, String dateKey, double value) async {
     try {
@@ -75,4 +70,29 @@ class SupabaseService {
       onConflict: 'habit_id, check_in_date'
     );
   }
+  Future<void> updateCheckIn(CheckIn entry) async {
+  await _client.from('checkins')
+      .update(entry.toJson())
+      .eq('id', entry.id);
+  }
+
+  // DELETE Check-In
+  Future<void> deleteCheckIn(int entryId) async {
+    await _client.from('checkins')
+        .delete()
+        .eq('id', entryId);
+  }
+  Future<void> updateHabit(Habit habit) async {
+  await _client.from('habits')
+      .update(habit.toJson())
+      .eq('id', habit.id);
+}
+
+// DELETE Habit
+Future<void> deleteHabit(int habitId) async {
+  // CASCADE DELETE akan menghapus semua CheckIn terkait
+  await _client.from('habits')
+      .delete()
+      .eq('id', habitId);
+}
 }

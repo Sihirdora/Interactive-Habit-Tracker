@@ -14,7 +14,7 @@ class HomeScreen extends ConsumerWidget {
     // Mengambil data dari Provider (Real-time stream)
     final habitsAsync = ref.watch(habitsProvider);
 
-    // Warna tema utama (Royal Blue/Purple)
+    // Warna tema utama
     final Color backgroundColor = const Color(0xFF4C53A5);
     final Color cardColor = Colors.white;
 
@@ -23,9 +23,14 @@ class HomeScreen extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.white),
-          onPressed: () {},
+        // Tombol menu untuk membuka Drawer
+        leading: Builder( 
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu, color: Colors.white),
+            onPressed: () {
+              Scaffold.of(context).openDrawer(); 
+            },
+          ),
         ),
       ),
       body: Column(
@@ -104,41 +109,26 @@ class HomeScreen extends ConsumerWidget {
                   itemBuilder: (context, index) {
                     final habit = habits[index];
 
-                    // --- LOGIKA REAL-TIME UI ---
-                    
-                    // 1. Dapatkan Tanggal Hari Ini (Format String YYYY-MM-DD)
-                    String todayKey = DateTime.now().toString().split(' ')[0];
-
-                    // 2. Ambil nilai progress hari ini dari Model (Real-time data)
-                    // Jika belum ada data hari ini, anggap 0.0
-                    double currentVal = habit.dailyProgress[todayKey] ?? 0.0;
-
-                    // 3. Hitung Persentase (0.0 sampai 1.0)
-                    double progressRaw = (habit.targetValue > 0) 
-                        ? (currentVal / habit.targetValue) 
-                        : 0.0;
-
-                    // Clamp agar visual lingkaran tidak error jika progress > 100%
-                    double progressPercent = progressRaw.clamp(0.0, 1.0);
+                    // --- LOGIKA PROGRESS (MOCK SEMENTARA) ---
+                    // Karena dailyProgress sudah dihapus dari model Habit, 
+                    // kita hanya menampilkan 0% atau 100% berdasarkan nama (dari data Anda sebelumnya)
+                    double progressPercent = 0.0;
+                    if (habit.name.toLowerCase().contains('sdaasd')) {
+                        progressPercent = 1.0; // Mock 100%
+                    }
 
                     return GestureDetector(
-                      onTap: () {
-                        // AKSI: Menambah progress saat diklik
-                        // Jika tipe BOOLEAN (Checklist), set ke full target
-                        // Jika tipe COUNT/DURATION, tambah 1 unit
-                        double incrementAmount = (habit.targetType == 'BOOLEAN') 
-                            ? (habit.targetValue - currentVal) // Toggle logic sederhana: isi penuh
-                            : 1.0; 
-                        
-                        // Panggil fungsi di Provider
-                        if (currentVal < habit.targetValue || habit.targetType != 'BOOLEAN') {
-                           ref.read(habitsProvider.notifier)
-                              .incrementProgress(habit.id, incrementAmount);
-                        }
-                      },
                       onLongPress: () {
-                        // Navigasi ke detail jika ingin melihat info lebih lengkap
-                         Navigator.push(
+                        // Navigasi ke detail
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => DetailScreen(habit: habit)),
+                        );
+                      },
+                      // Navigasi ke detail saat diklik juga
+                      onTap: () {
+                        Navigator.push(
                           context,
                           MaterialPageRoute(
                               builder: (context) => DetailScreen(habit: habit)),
@@ -167,21 +157,21 @@ class HomeScreen extends ConsumerWidget {
                                     alignment: Alignment.center,
                                     children: [
                                       // Track Circle (Background Abu)
-                                      SizedBox(
+                                      const SizedBox(
                                         width: 80, height: 80,
                                         child: CircularProgressIndicator(
                                           value: 1.0,
                                           strokeWidth: 8,
-                                          color: const Color(0xFFE0E0E0),
+                                          color: Color(0xFFE0E0E0),
                                         ),
                                       ),
-                                      // PROGRESS CIRCLE (DATA REAL)
+                                      // PROGRESS CIRCLE (DATA REAL/MOCK)
                                       SizedBox(
                                         width: 80, height: 80,
                                         child: CircularProgressIndicator(
                                           value: progressPercent, 
                                           strokeWidth: 8,
-                                          color: Color(habit.colorCode).withOpacity(1.0),
+                                          color: Color(habit.colorCode),
                                           strokeCap: StrokeCap.round,
                                         ),
                                       ),
@@ -225,6 +215,7 @@ class HomeScreen extends ConsumerWidget {
           ),
         ],
       ),
+      // Tombol FAB dipindahkan ke sini untuk menambah Habit
       floatingActionButton: SizedBox(
         width: 65,
         height: 65,
@@ -287,14 +278,16 @@ class HomeScreen extends ConsumerWidget {
   Widget _getIconForHabit(String name, int colorCode) {
     IconData iconData;
     String lowerName = name.toLowerCase();
-    if (lowerName.contains('water') || lowerName.contains('drink')) {
+    
+    // Logika Icon Sederhana
+    if (lowerName.contains('water') || lowerName.contains('minum air')) {
       iconData = Icons.local_drink;
-    } else if (lowerName.contains('cycle') || lowerName.contains('bike')) {
-      iconData = Icons.directions_bike;
-    } else if (lowerName.contains('walk') || lowerName.contains('run')) {
+    } else if (lowerName.contains('youtube') || lowerName.contains('nonton')) {
+      iconData = Icons.ondemand_video;
+    } else if (lowerName.contains('walk') || lowerName.contains('run') || lowerName.contains('lari')) {
       iconData = Icons.directions_run;
     } else {
-      iconData = Icons.water_drop;
+      iconData = Icons.star; // Icon default
     }
     return Icon(iconData, size: 28, color: Color(colorCode));
   }

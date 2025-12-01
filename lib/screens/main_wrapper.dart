@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'home_screen.dart'; 
-import 'calendar_screen.dart';
+import 'journal_screen.dart';
 import 'archive_screen.dart';
 import 'settings_screen.dart';
 import 'report_screen.dart';
@@ -19,7 +19,7 @@ class _MainWrapperState extends State<MainWrapper> {
     // Ganti HomeScreen dengan Widget Utama Anda
     const HomeScreen(), 
     const ReportScreen(),
-    const CalendarScreen(),
+    const JournalScreen(),
   ];
 
   void _onItemTapped(int index) {
@@ -130,8 +130,8 @@ class _MainWrapperState extends State<MainWrapper> {
             label: 'Laporan',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_month),
-            label: 'Kalender',
+            icon: Icon(Icons.book),
+            label: 'Journal',
           ),
         ],
         currentIndex: _selectedIndex,

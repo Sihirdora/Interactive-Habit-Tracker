@@ -6,7 +6,9 @@ import '../models/habit_model.dart';
 import '../services/supabase_service.dart';
 import 'habit_provider.dart'; // Digunakan untuk mengakses supabaseServiceProvider
 
-// FutureProvider.family: Mendapatkan semua Check-In untuk satu Kebiasaan
+// Catatan: Asumsi 'supabaseServiceProvider' tersedia melalui habit_provider.dart
+
+// FutureProvider.family: Mendapatkan semua Check-In untuk satu Kebiasaan (READ)
 final checkInsByHabitIdProvider = 
     FutureProvider.family<List<CheckIn>, int>((ref, habitId) async {
   
@@ -20,19 +22,18 @@ class CheckInNotifier extends StateNotifier<void> {
 
   CheckInNotifier(this._service, this._ref) : super(null); 
 
+  // CREATE / LOG (Menggunakan Upsert)
   Future<void> performCheckIn({
     required Habit habit,
     required double progressValue,
     String? notes,
   }) async {
     final today = DateTime.now();
-    // Pastikan tanggal hanya berisi yyyy-mm-dd
     final checkInDate = DateTime(today.year, today.month, today.day);
-
     final bool isCompleted = progressValue >= habit.targetValue;
 
     final newCheckIn = CheckIn(
-      id: 0, 
+      id: 0, // Akan diabaikan oleh Supabase saat CREATE/UPSERT
       habitId: habit.id,
       checkInDate: checkInDate,
       progressValue: progressValue,
@@ -40,10 +41,27 @@ class CheckInNotifier extends StateNotifier<void> {
       notes: notes,
     );
     
-    await _service.logCheckIn(newCheckIn);
+    await _service.logCheckIn(newCheckIn); // Asumsi logCheckIn menangani CREATE/UPSERT
 
-    // Invalidasi untuk merefresh data check-in di UI
     _ref.invalidate(checkInsByHabitIdProvider(habit.id));
+  }
+  
+  // --- UPDATE LOGIC (Baru Ditambahkan) ---
+  Future<void> updateEntry(CheckIn entry) async {
+    // Note: Asumsi SupabaseService memiliki fungsi updateCheckIn(CheckIn entry)
+    await _service.updateCheckIn(entry);
+    
+    // Invalidasi untuk merefresh data check-in di UI
+    _ref.invalidate(checkInsByHabitIdProvider(entry.habitId));
+  }
+
+  // --- DELETE LOGIC (Baru Ditambahkan) ---
+  Future<void> deleteEntry(int entryId, int habitId) async {
+    // Note: Asumsi SupabaseService memiliki fungsi deleteCheckIn(int id)
+    await _service.deleteCheckIn(entryId);
+    
+    // Invalidasi untuk merefresh data check-in di UI
+    _ref.invalidate(checkInsByHabitIdProvider(habitId));
   }
 }
 

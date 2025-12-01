@@ -4,16 +4,116 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart'; 
 import '../models/habit_model.dart';
-import '../models/check_in_model.dart';
+import '../models/check_in_model.dart'; 
 import '../providers/checkin_provider.dart';
+import 'edit_habit_screen.dart'; // Tambahkan untuk navigasi Edit
 
-// Helper: Menghitung hari ke-n dalam periode 30 hari terakhir
+// --- FUNGSI TOP-LEVEL (HELPER) ---
 double _daysBetween(DateTime from, DateTime to) {
   from = DateTime(from.year, from.month, from.day);
   to = DateTime(to.year, to.month, to.day);
   return (to.difference(from).inHours / 24).toDouble();
 }
 
+// --- FUNGSI CRUD LOG CHECKIN (PERLU DIHAPUS DARI KELAS DAN DILETAKKAN DI SINI) ---
+
+Future<void> _handleDeleteCheckIn(BuildContext context, WidgetRef ref, CheckIn checkIn) async {
+  final checkInNotifier = ref.read(checkInNotifierProvider.notifier);
+  final confirm = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Hapus Log?'),
+      content: Text('Yakin ingin menghapus log untuk tanggal ${checkIn.checkInDate.toString().substring(0, 10)}?'),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Batal')),
+        TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Hapus', style: TextStyle(color: Colors.red))),
+      ],
+    ),
+  );
+
+  if (confirm == true) {
+    await checkInNotifier.deleteEntry(checkIn.id, checkIn.habitId); 
+  }
+}
+
+Future<void> _showEditCheckInDialog(BuildContext context, WidgetRef ref, CheckIn oldCheckIn, Habit habit) async {
+  final progressController = TextEditingController(text: oldCheckIn.progressValue.toString());
+  final checkInNotifier = ref.read(checkInNotifierProvider.notifier);
+  
+  final result = await showDialog<double>(
+    context: context,
+    builder: (BuildContext dialogContext) {
+      return AlertDialog(
+        title: Text('Ubah Progres (${habit.unit ?? 'Count'})'),
+        content: TextField(
+          controller: progressController,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(
+            labelText: 'Berapa banyak yang sudah dilakukan?',
+            suffixText: habit.unit, 
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(child: const Text('Batal'), onPressed: () => Navigator.of(dialogContext).pop()),
+          ElevatedButton(
+            child: const Text('Update'),
+            onPressed: () {
+              final progress = double.tryParse(progressController.text);
+              if (progress != null && progress >= 0) {
+                Navigator.of(dialogContext).pop(progress);
+              }
+            },
+          ),
+        ],
+      );
+    },
+  );
+
+  if (result != null) {
+    final updatedCheckIn = CheckIn(
+      id: oldCheckIn.id,
+      habitId: oldCheckIn.habitId,
+      checkInDate: oldCheckIn.checkInDate,
+      progressValue: result,
+      isCompleted: result >= habit.targetValue, 
+    );
+    await checkInNotifier.updateEntry(updatedCheckIn);
+  }
+}
+
+void _showCheckInActionMenu(BuildContext context, WidgetRef ref, CheckIn checkIn, Habit habit) {
+  showModalBottomSheet(
+    context: context,
+    builder: (context) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.edit),
+            title: const Text('Ubah Progres'),
+            onTap: () {
+              Navigator.pop(context);
+              // Tambahkan habit sebagai argumen di sini
+              _showEditCheckInDialog(context, ref, checkIn, habit);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.delete_forever, color: Colors.red),
+            title: const Text('Hapus Log Ini', style: TextStyle(color: Colors.red)),
+            onTap: () {
+              Navigator.pop(context);
+              _handleDeleteCheckIn(context, ref, checkIn);
+            },
+          ),
+        ],
+      );
+    },
+  );
+}
+
+
+// --- KELAS UTAMA ---
 class DetailScreen extends ConsumerWidget {
   final Habit habit;
   
@@ -29,6 +129,19 @@ class DetailScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(habit.name),
         backgroundColor: primaryColor,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => EditHabitScreen(habit: habit),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -39,7 +152,6 @@ class DetailScreen extends ConsumerWidget {
               _buildHeader(habit, primaryColor),
               const SizedBox(height: 20),
 
-              // --- BAGIAN VISUALISASI ---
               Text(
                 'Progress 30 Days',
                 style: Theme.of(context).textTheme.titleLarge,
@@ -54,13 +166,15 @@ class DetailScreen extends ConsumerWidget {
               _buildInteractiveCheckIn(context, habit, checkInNotifier),
               const SizedBox(height: 30),
               
-              _buildCheckInHistory(context, checkInsAsync), 
+              _buildCheckInHistory(context, ref, checkInsAsync, habit), 
             ],
           ),
         ),
       ),
     );
   }
+  
+  // --- BUILD METHODS (SEKARANG INSTANCE METHODS DARI KELAS) ---
   
   Widget _buildHeader(Habit habit, Color color) {
     return Column(
@@ -120,7 +234,7 @@ class DetailScreen extends ConsumerWidget {
                       topLeft: Radius.circular(3), topRight: Radius.circular(3)),
                   ),
                   BarChartRodData(
-                    toY: habit.targetValue,
+                    toY: habit.targetValue, 
                     color: color.withAlpha(50), 
                     width: 1,
                   )
@@ -175,18 +289,15 @@ class DetailScreen extends ConsumerWidget {
               barTouchData: BarTouchData(
                 enabled: true,
                 touchTooltipData: BarTouchTooltipData(
-                  // FIX: Menghapus tooltipStyle yang undefined
-                  // Warna background tooltip sekarang akan menggunakan default fl_chart atau kustomisasi pada touchCallback
-                  
                   getTooltipItem: (group, groupIndex, rod, rodIndex) {
                     if (rodIndex != 0) return null; 
 
                     return BarTooltipItem(
-                      '${rod.toY.toStringAsFixed(1)} ${habit.unit ?? ''}\n',
+                      '${rod.toY.toStringAsFixed(1)} ${habit.unit ?? ''}\n', 
                       const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                       children: [
                         TextSpan(
-                          text: rod.toY >= habit.targetValue ? 'SUCCESS' : 'Partial',
+                          text: rod.toY >= habit.targetValue ? 'SUCCESS' : 'Partial', 
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.normal,
@@ -255,6 +366,7 @@ class DetailScreen extends ConsumerWidget {
       ),
       onPressed: isCheckedIn ? null : () async {
         if (habit.targetType != 'BOOLEAN') {
+          // Panggilan ke fungsi top-level yang sudah didefinisikan
           await _showProgressDialog(context, habit, checkInNotifier); 
         } else {
           await checkInNotifier.performCheckIn( 
@@ -265,13 +377,14 @@ class DetailScreen extends ConsumerWidget {
         }
       },
       icon: Icon(isCheckedIn ? Icons.check_circle : Icons.add_task),
-      label: Text(
-        isCheckedIn ? 'Checked In Today!' : 'Log Today\'s Progress',
-        style: const TextStyle(fontSize: 18, color: Colors.white),
+      label: const Text( // FIX: Menambahkan label yang hilang
+        'Log Progress',
+        style: TextStyle(fontSize: 18, color: Colors.white),
       ),
     );
   }
   
+  // Perbaiki: Panggil fungsi top-level
   Future<void> _showProgressDialog(BuildContext context, Habit habit, CheckInNotifier checkInNotifier) async {
     final TextEditingController progressController = TextEditingController();
     
@@ -285,7 +398,7 @@ class DetailScreen extends ConsumerWidget {
             keyboardType: TextInputType.number,
             decoration: InputDecoration(
               labelText: 'How much did you do?',
-              suffixText: habit.unit,
+              suffixText: habit.unit, 
               border: const OutlineInputBorder(),
             ),
           ),
@@ -316,12 +429,13 @@ class DetailScreen extends ConsumerWidget {
     }
   }
 
-  Widget _buildCheckInHistory(BuildContext context, AsyncValue checkInsAsync) { 
+  // Perbaiki: Panggil fungsi top-level
+  Widget _buildCheckInHistory(BuildContext context, WidgetRef ref, AsyncValue checkInsAsync, Habit habit) { 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Recent Check-Ins',
+          'Riwayat Log',
           style: Theme.of(context).textTheme.titleLarge, 
         ),
         checkInsAsync.when(
@@ -331,9 +445,9 @@ class DetailScreen extends ConsumerWidget {
             return ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: checkIns.length > 5 ? 5 : checkIns.length, 
+              itemCount: checkIns.length, 
               itemBuilder: (context, index) {
-                final checkIn = checkIns[index];
+                final checkIn = checkIns[index] as CheckIn; 
                 final isCompleted = checkIn.progressValue >= habit.targetValue; 
                 
                 return ListTile(
@@ -342,7 +456,12 @@ class DetailScreen extends ConsumerWidget {
                     color: isCompleted ? Colors.green : Colors.red,
                   ),
                   title: Text(checkIn.checkInDate.toIso8601String().substring(0, 10)),
-                  subtitle: Text('Progress: ${checkIn.progressValue} ${habit.unit ?? ''}'),
+                  subtitle: Text('Progres: ${checkIn.progressValue} ${habit.unit ?? ''}'),
+                  onTap: () => _showCheckInActionMenu(context, ref, checkIn, habit), // FIX: Menambahkan habit
+                  trailing: IconButton(
+                    icon: const Icon(Icons.more_vert),
+                    onPressed: () => _showCheckInActionMenu(context, ref, checkIn, habit), // FIX: Menambahkan habit
+                  ),
                 );
               },
             );
