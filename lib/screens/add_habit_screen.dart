@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/habit_model.dart'; // Pastikan import model
-import 'time_selection_screen.dart'; // Import halaman baru
+import '../models/habit_model.dart'; // Pastikan import model Anda
+import 'time_selection_screen.dart'; // Import halaman baru (Jika ada)
 
 const List<String> weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -128,13 +128,20 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
               const SizedBox(height: 20),
 
               // 2. INPUT DESKRIPSI
-              TextFormField(
-                decoration: const InputDecoration(
-                  labelText: 'Description (Optional)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.notes),
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey.shade300),
                 ),
-                onSaved: (val) => _description = val,
+                child: TextFormField(
+                  decoration: const InputDecoration(
+                    hintText: 'Description (Optional)',
+                    border: InputBorder.none, // Hapus border bawaan TextFormField
+                    contentPadding: EdgeInsets.symmetric(horizontal: 15, vertical: 15),
+                    prefixIcon: Icon(Icons.notes, color: Colors.grey),
+                  ),
+                  onSaved: (val) => _description = val,
+                ),
               ),
               const SizedBox(height: 20),
 
@@ -143,22 +150,30 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
               const SizedBox(height: 10),
               Row(
                 children: [
-                   Expanded(
+                    Expanded(
+                    // Perbaikan: flex 2 (untuk 'COUNT/DURATION/BOOLEAN')
                     flex: 2,
                     child: DropdownButtonFormField<String>(
-                      decoration: const InputDecoration(border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 5)),
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(), 
+                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 5)
+                      ),
                       value: _targetType,
                       items: ['COUNT', 'DURATION', 'BOOLEAN'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
                       onChanged: (v) => setState(() {
                         _targetType = v!;
-                        if(v == 'BOOLEAN') { _targetController.text = '1.0'; _unitController.clear(); }
+                        if(v == 'BOOLEAN') { 
+                            _targetController.text = '1.0'; 
+                            _unitController.clear(); 
+                        }
                       }),
                     ),
                   ),
                   const SizedBox(width: 10),
                   if(_targetType != 'BOOLEAN') ...[
                     Expanded(
-                      flex: 2,
+                      // Perbaikan: flex 3 (sebelumnya 2)
+                      flex: 3, 
                       child: TextFormField(
                         controller: _targetController,
                         keyboardType: TextInputType.number,
@@ -167,7 +182,8 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      flex: 2,
+                      // Perbaikan: flex 3 (sebelumnya 2)
+                      flex: 3, 
                       child: TextFormField(
                         controller: _unitController,
                         decoration: const InputDecoration(labelText: 'Unit', border: OutlineInputBorder()),

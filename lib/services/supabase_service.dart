@@ -15,18 +15,17 @@ class SupabaseService {
   }
 
   // CREATE: Menambahkan kebiasaan baru & MENGEMBALIKAN DATA BARU
-  // Perhatikan tipe kembalian: Future<Habit>, bukan Future<void>
   Future<Habit> addHabit(Habit habit) async {
     final response = await _client
         .from('habits')
         .insert(habit.toJson())
-        .select() // .select() penting agar Supabase mengembalikan data yang baru diinsert
+        .select() 
         .single();
     
     return Habit.fromJson(response);
   }
 
-  // UPDATE PROGRESS HARIAN (JSONB)
+  // UPDATE PROGRESS HARIAN (JSONB) - DEPRECATED: Sebaiknya gunakan tabel CheckIn
   Future<void> updateHabitProgress(int habitId, String dateKey, double value) async {
     try {
       final response = await _client
@@ -53,8 +52,9 @@ class SupabaseService {
     }
   }
 
-  // --- Operasi Check-In (Opsional/Fitur Lama) ---
+  // --- Operasi Check-In ---
 
+  // READ: Mendapatkan semua Check-In untuk satu Habit
   Future<List<CheckIn>> getCheckInsForHabit(int habitId) async {
     final response = await _client.from('checkins')
         .select()
@@ -64,16 +64,19 @@ class SupabaseService {
     return (response as List).map((json) => CheckIn.fromJson(json)).toList();
   }
 
+  // CREATE/UPDATE: Mencatat Check-In (Menggunakan Upsert)
   Future<void> logCheckIn(CheckIn checkIn) async {
     await _client.from('checkins').upsert(
       checkIn.toJson(), 
       onConflict: 'habit_id, check_in_date'
     );
   }
+  
+  // UPDATE Check-In
   Future<void> updateCheckIn(CheckIn entry) async {
-  await _client.from('checkins')
-      .update(entry.toJson())
-      .eq('id', entry.id);
+    await _client.from('checkins')
+        .update(entry.toJson())
+        .eq('id', entry.id);
   }
 
   // DELETE Check-In
@@ -82,17 +85,43 @@ class SupabaseService {
         .delete()
         .eq('id', entryId);
   }
+  
+  // UPDATE Habit
   Future<void> updateHabit(Habit habit) async {
-  await _client.from('habits')
-      .update(habit.toJson())
-      .eq('id', habit.id);
-}
+    await _client.from('habits')
+        .update(habit.toJson())
+        .eq('id', habit.id);
+  }
 
-// DELETE Habit
-Future<void> deleteHabit(int habitId) async {
-  // CASCADE DELETE akan menghapus semua CheckIn terkait
-  await _client.from('habits')
-      .delete()
-      .eq('id', habitId);
-}
+  // DELETE Habit
+  Future<void> deleteHabit(int habitId) async {
+    // CASCADE DELETE akan menghapus semua CheckIn terkait
+    await _client.from('habits')
+        .delete()
+        .eq('id', habitId);
+  }
+  
+  // =======================================================
+  // [BARU DITAMBAHKAN] FUNGSI UNTUK GRAFIK MINGGUAN
+  // =======================================================
+  Future<List<CheckIn>> getCheckInsInDateRange(
+      DateTime startDate, DateTime endDate, List<int> habitIds) async {
+    
+    // Format tanggal menjadi string YYYY-MM-DD
+    // Supabase menggunakan format ISO, tapi memfilter hanya berdasarkan tanggal lebih bersih
+    final startIso = startDate.toIso8601String().split('T')[0];
+    final endIso = endDate.toIso8601String().split('T')[0];
+    
+    final response = await _client
+        .from('checkins') // Menggunakan nama tabel 'checkins' sesuai kode Anda
+        .select('*')
+        .inFilter('habit_id', habitIds) 
+        // Filter tanggal: check_in_date >= startDate
+        .gte('check_in_date', startIso) 
+        // Filter tanggal: check_in_date <= endDate
+        .lte('check_in_date', endIso) 
+        .order('check_in_date', ascending: false);
+        
+    return (response as List).map((map) => CheckIn.fromJson(map)).toList();
+  }
 }

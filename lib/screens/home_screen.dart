@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/habit_provider.dart';
+import '../providers/checkin_provider.dart'; // [1] IMPORT BARU: CheckIn Provider
+import '../models/check_in_model.dart';      // [1] IMPORT BARU: CheckIn Model
 import 'add_habit_screen.dart';
 import 'detail_screen.dart';
 
@@ -108,13 +110,25 @@ class HomeScreen extends ConsumerWidget {
                   itemCount: habits.length,
                   itemBuilder: (context, index) {
                     final habit = habits[index];
-
-                    // --- LOGIKA PROGRESS (MOCK SEMENTARA) ---
-                    // Karena dailyProgress sudah dihapus dari model Habit, 
-                    // kita hanya menampilkan 0% atau 100% berdasarkan nama (dari data Anda sebelumnya)
+                    
+                    // [2] MENGAMBIL PROGRESS HARIAN (currentVal)
+                    // Kita asumsikan CheckIn yang pertama adalah progress harian hari ini
+                    final currentCheckInsAsync = ref.watch(checkInsByHabitIdProvider(habit.id));
+                    
+                    // Default values jika data belum siap
+                    double currentVal = 0.0;
                     double progressPercent = 0.0;
-                    if (habit.name.toLowerCase().contains('sdaasd')) {
-                        progressPercent = 1.0; // Mock 100%
+                    
+                    if (currentCheckInsAsync.hasValue && currentCheckInsAsync.value!.isNotEmpty) {
+                        final todayCheckIn = currentCheckInsAsync.value!
+                            .firstWhere(
+                                (ci) => ci.checkInDate.day == DateTime.now().day, 
+                                orElse: () => CheckIn(id: 0, habitId: 0, checkInDate: DateTime.now(), progressValue: 0.0, isCompleted: false)
+                            );
+                        currentVal = todayCheckIn.progressValue;
+                        progressPercent = currentVal / habit.targetValue;
+                        if (progressPercent.isNaN || progressPercent.isInfinite) progressPercent = 0.0;
+                        progressPercent = progressPercent.clamp(0.0, 1.0);
                     }
 
                     return GestureDetector(
@@ -128,11 +142,28 @@ class HomeScreen extends ConsumerWidget {
                       },
                       // Navigasi ke detail saat diklik juga
                       onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => DetailScreen(habit: habit)),
-                        );
+                        // AKSI: Menambah progress saat diklik
+                        final notifier = ref.read(checkInNotifierProvider.notifier); // Panggil CheckIn Notifier
+
+                        double progressToAdd;
+                        if (habit.targetType == 'BOOLEAN') {
+                          // Toggle: Jika sudah selesai (currentVal >= targetValue), progressToAdd menjadi negatif untuk reset.
+                          progressToAdd = currentVal >= habit.targetValue 
+                              ? -currentVal // Reset ke 0
+                              : habit.targetValue - currentVal; // Lengkapi ke target
+                        } else {
+                          progressToAdd = 1.0; 
+                        }
+                        
+                        // Cek: Hanya izinkan penambahan jika belum selesai (untuk COUNT/DURATION)
+                        // BOOLEAN: selalu izinkan (untuk toggle)
+                        if (habit.targetType == 'BOOLEAN' || currentVal < habit.targetValue) {
+                           // [3] MEMANGGIL FUNGSI YANG BENAR
+                           notifier.performCheckIn(
+                              habit: habit, 
+                              progressValue: currentVal + progressToAdd,
+                           );
+                        }
                       },
                       child: Container(
                         decoration: BoxDecoration(
@@ -140,7 +171,8 @@ class HomeScreen extends ConsumerWidget {
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
+                              // [4] PERBAIKAN: Mengganti withOpacity
+                              color: Colors.black.withAlpha(25), 
                               blurRadius: 10,
                               offset: const Offset(0, 5),
                             ),
@@ -169,7 +201,7 @@ class HomeScreen extends ConsumerWidget {
                                       SizedBox(
                                         width: 80, height: 80,
                                         child: CircularProgressIndicator(
-                                          value: progressPercent, 
+                                          value: progressPercent, // Menggunakan nilai yang dihitung dari CheckIn
                                           strokeWidth: 8,
                                           color: Color(habit.colorCode),
                                           strokeCap: StrokeCap.round,

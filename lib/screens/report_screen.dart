@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
-import '../providers/habit_provider.dart';
+import '../providers/habit_provider.dart'; // Import HabitProvider
+import '../providers/today_progress_provider.dart'; // Import todayHabitProgressProvider & todaySummaryProvider
+import '../providers/weekly_progress_provider.dart'; // Import weeklyProgressProvider
 import '../models/habit_model.dart';
 
 class ReportScreen extends ConsumerWidget {
@@ -9,9 +11,14 @@ class ReportScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 1. Ambil data habit dari Provider
-    final habitsAsync = ref.watch(habitsProvider);
-    final todayKey = DateTime.now().toString().split(' ')[0];
+    // 1. Ambil data gabungan Habit + Progress Hari Ini
+    final todayProgressDataAsync = ref.watch(todayHabitProgressProvider);
+    
+    // 2. Ambil ringkasan statistik Hari Ini (totalCompleted, totalActive, overallRate)
+    final todaySummary = ref.watch(todaySummaryProvider);
+    
+    // 3. Ambil data mingguan untuk Grafik
+    final weeklyProgressAsync = ref.watch(weeklyProgressProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6FA), // Background abu sangat muda
@@ -24,92 +31,59 @@ class ReportScreen extends ConsumerWidget {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: habitsAsync.when(
+      body: todayProgressDataAsync.when( // Menggunakan Provider untuk data harian
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(child: Text('Error: $err')),
-        data: (habits) {
-          if (habits.isEmpty) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.bar_chart, size: 80, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text("No habit data yet.",
-                      style: TextStyle(color: Colors.grey)),
-                ],
-              ),
-            );
-          }
-
-          // --- PERHITUNGAN STATISTIK ---
+        data: (progressData) {
+          final summary = todaySummary;
           
-          // 1. Hitung performa hari ini
-          int totalActive = habits.where((h) => h.isActive).length;
-          int completedToday = 0;
-          double totalProgressSum = 0;
+          final int totalActive = summary.totalActive;
+          final int completedToday = summary.completed;
+          final double overallRate = summary.overallRate;
 
-          for (var habit in habits) {
-            if (!habit.isActive) continue;
-            double current = habit.dailyProgress[todayKey] ?? 0.0;
-            
-            // Cek status completed
-            if (current >= habit.targetValue && habit.targetValue > 0) {
-              completedToday++;
-            }
-            
-            // Hitung persentase habit ini (max 1.0)
-            double p = (habit.targetValue > 0) 
-                ? (current / habit.targetValue) 
-                : 0.0;
-            totalProgressSum += p.clamp(0.0, 1.0);
-          }
-
-          // Rata-rata progress semua habit hari ini (0.0 - 1.0)
-          double overallRate = (totalActive > 0) 
-              ? (totalProgressSum / totalActive) 
-              : 0.0;
-
-          // 2. Siapkan data Grafik 7 Hari Terakhir
+          // --- 2. SIAPKAN DATA GRAFIK MINGGUAN ---
           List<BarChartGroupData> barGroups = [];
-          for (int i = 6; i >= 0; i--) {
-            DateTime date = DateTime.now().subtract(Duration(days: i));
-            String key = date.toString().split(' ')[0];
+          
+          if (weeklyProgressAsync.hasValue) {
+            final weeklySummary = weeklyProgressAsync.value!;
+            final now = DateTime.now();
             
-            // Hitung rata-rata di hari tersebut
-            double dailySum = 0;
-            int count = 0;
-            for (var habit in habits) {
-               if (!habit.isActive) continue;
-               double val = habit.dailyProgress[key] ?? 0.0;
-               double p = (habit.targetValue > 0) ? (val / habit.targetValue) : 0.0;
-               dailySum += p.clamp(0.0, 1.0);
-               count++;
-            }
-            double dailyRate = (count > 0) ? (dailySum / count) * 100 : 0.0;
+            for (int i = 0; i < 7; i++) {
+              // Iterasi dari 6 hari lalu (i=0) sampai Hari Ini (i=6)
+              final date = now.subtract(Duration(days: 6 - i));
+              final cleanDate = DateTime(date.year, date.month, date.day);
+              
+              // Nilai (0.0 - 1.0) dari provider
+              double rate = weeklySummary[cleanDate] ?? 0.0; 
+              
+              // Nilai untuk Grafik (0 - 100)
+              double dailyRate = rate * 100; 
 
-            // Buat batang grafik
-            barGroups.add(
-              BarChartGroupData(
-                x: 6 - i, // Urutan 0..6
-                barRods: [
-                  BarChartRodData(
-                    toY: dailyRate,
-                    color: i == 0 
-                        ? const Color(0xFF4C53A5) // Hari ini warnanya beda
-                        : const Color(0xFFB0C4DE),
-                    width: 14,
-                    borderRadius: BorderRadius.circular(4),
-                    backDrawRodData: BackgroundBarChartRodData(
-                      show: true,
-                      toY: 100, // Background penuh 100%
-                      color: Colors.white,
-                    ),
-                  )
-                ],
-              ),
-            );
+              // Buat batang grafik
+              barGroups.add(
+                BarChartGroupData(
+                  x: i, // Urutan 0..6
+                  barRods: [
+                    BarChartRodData(
+                      toY: dailyRate,
+                      color: (6 - i) == 0 // Cek apakah ini hari ini
+                          ? const Color(0xFF4C53A5)
+                          : const Color(0xFFB0C4DE),
+                      width: 14,
+                      borderRadius: BorderRadius.circular(4),
+                      backDrawRodData: BackgroundBarChartRodData(
+                        show: true,
+                        toY: 100, // Background penuh 100%
+                        color: Colors.white,
+                      ),
+                    )
+                  ],
+                ),
+              );
+            }
           }
+          // ----------------------------------------
+
 
           // --- UI BUILDER ---
           return SingleChildScrollView(
@@ -126,7 +100,9 @@ class ReportScreen extends ConsumerWidget {
                 const Text("Consistency (Last 7 Days)", 
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
                 const SizedBox(height: 12),
-                _buildChartCard(barGroups),
+                
+                // Gunakan BarGroups yang sudah dihitung dari weeklyProgressAsync
+                _buildChartCard(barGroups), 
 
                 const SizedBox(height: 24),
 
@@ -135,11 +111,9 @@ class ReportScreen extends ConsumerWidget {
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
                 const SizedBox(height: 12),
                 
-                // Tampilkan list habit beserta progress bar-nya
-                ...habits.where((h) => h.isActive).map((habit) {
-                   double current = habit.dailyProgress[todayKey] ?? 0.0;
-                   double p = (habit.targetValue > 0) ? (current / habit.targetValue) : 0.0;
-                   return _buildHabitStatRow(habit, p.clamp(0.0, 1.0));
+                // Ulangi data dari todayHabitProgressProvider
+                ...progressData.map((data) {
+                    return _buildHabitStatRow(data.habit, data.progressPercent);
                 }),
               ],
             ),
@@ -233,8 +207,12 @@ class ReportScreen extends ConsumerWidget {
                 showTitles: true,
                 getTitlesWidget: (value, meta) {
                   // Label hari (misal: Mon, Tue)
+                  // Menghitung tanggal 6 hari lalu (value=0) hingga Hari Ini (value=6)
                   DateTime d = DateTime.now().subtract(Duration(days: 6 - value.toInt()));
                   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                  
+                  // D.weekday mengembalikan 1 (Senin) hingga 7 (Minggu)
+                  // Kita perlu d.weekday - 1 untuk indeks list (0 hingga 6)
                   return Padding(
                     padding: const EdgeInsets.only(top: 8.0),
                     child: Text(

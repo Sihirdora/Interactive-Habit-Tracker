@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/supabase_service.dart';
 import '../models/habit_model.dart';
+import 'package:flutter/foundation.dart'; // Tambahkan ini untuk debugPrint
 
 // 1. Provider untuk Service
 final supabaseServiceProvider = Provider((ref) => SupabaseService());
@@ -36,29 +37,27 @@ class HabitsNotifier extends StateNotifier<AsyncValue<List<Habit>>> {
   }
 
   // --- FUNGSI 3: MENGEDIT HABIT (UPDATE) ---
-  // Fungsi ini dipanggil dari EditHabitScreen
   Future<void> updateHabit(Habit habit) async {
     try {
       await _supabaseService.updateHabit(habit);
-      // Stream Supabase akan otomatis memperbarui state di atas
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
   }
   
   // --- FUNGSI 4: MENGHAPUS HABIT (DELETE) ---
-  // Fungsi ini dipanggil dari EditHabitScreen/Delete Confirmation
   Future<void> deleteHabit(int habitId) async {
     try {
       await _supabaseService.deleteHabit(habitId);
-      // Stream Supabase akan otomatis memperbarui state di atas
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
   }
 
-  // --- FUNGSI LAMA YANG DIHAPUS ---
-  // Menghapus incrementProgress karena logic tracking kini ada di CheckInNotifier.
+  // --- FUNGSI 5: MENAMBAH PROGRESS HARIAN (DIHAPUS DARI SINI) ---
+  // Fungsi `incrementProgress` telah dihapus dari HabitsNotifier 
+  // karena logika Check-In (Progress Harian) kini dikelola sepenuhnya oleh CheckInNotifier.
+  // Kode di home_screen.dart HARUS dialihkan untuk memanggil checkInNotifierProvider.
 }
 
 // 3. Global Provider
